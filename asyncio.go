@@ -25,6 +25,10 @@ func (c Coro) ToTask() *Task {
 	return &Task{reflect.ValueOf(c.Func), r, new(Handle)}
 }
 
+func C(f any, args ...any) Coro {
+	return Coro{f, args}
+}
+
 func NoArgsFunc(fs ...any) []Coro {
 	r := make([]Coro, len(fs))
 	for i, f := range fs {
