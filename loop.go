@@ -34,19 +34,17 @@ type AbstractEventLoop struct {
 	canRun sync.WaitGroup
 }
 
-func (loop *AbstractEventLoop) run(task *Task, handle *Handle) {
+func (loop *AbstractEventLoop) run(task *Task) {
 	loop.canRun.Wait()
-	handle.out = task.run()
-	handle.done = true
+	task.run()
 	loop.tasks.Done()
 }
 
 func (loop *AbstractEventLoop) Coro(coro Coro) *Handle {
 	task := coro.ToTask()
 	loop.tasks.Add(1)
-	handle := new(Handle)
-	go loop.run(task, handle)
-	return handle
+	go loop.run(task)
+	return task.handle
 }
 
 func (loop *AbstractEventLoop) CreateTask(f any, args ...any) *Handle {

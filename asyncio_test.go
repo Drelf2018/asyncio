@@ -15,7 +15,9 @@ func sleep(second int) float64 {
 }
 
 func TestMain(t *testing.T) {
-	handles := asyncio.Slice(sleep, asyncio.SingleArg(1, 2, 3, 4)...)
+	handles := asyncio.Slice(sleep, asyncio.SingleArg(1, 2, 3, 4))
+	h := asyncio.H[float64](handles).To()
+	fmt.Printf("h: %v\n", h)
 	for i, handle := range handles {
 		fmt.Printf("No.%v sleep() return %v\n", i, handle.Result())
 	}

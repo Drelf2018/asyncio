@@ -22,7 +22,7 @@ func (c Coro) ToTask() *Task {
 	for i, arg := range c.Args {
 		r[i] = reflect.ValueOf(arg)
 	}
-	return &Task{reflect.ValueOf(c.Func), r}
+	return &Task{reflect.ValueOf(c.Func), r, new(Handle)}
 }
 
 func NoArgsFunc(fs ...any) []Coro {
@@ -33,7 +33,7 @@ func NoArgsFunc(fs ...any) []Coro {
 	return r
 }
 
-func Await(coros ...Coro) []*Handle {
+func Await(coros []Coro) []*Handle {
 	loop := NewEventLoop()
 	r := make([]*Handle, len(coros))
 	for i, coro := range coros {
@@ -43,7 +43,7 @@ func Await(coros ...Coro) []*Handle {
 	return r
 }
 
-func Slice(f any, args ...Args) []*Handle {
+func Slice(f any, args []Args) []*Handle {
 	loop := NewEventLoop()
 	r := make([]*Handle, len(args))
 	for i, arg := range args {
