@@ -4,7 +4,7 @@ import "reflect"
 
 type Args []any
 
-func SingleArg(args ...any) []Args {
+func SingleArg[T any](args ...T) []Args {
 	r := make([]Args, len(args))
 	for i, arg := range args {
 		r[i] = Args{arg}
