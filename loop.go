@@ -40,15 +40,15 @@ func (loop *AbstractEventLoop) run(task *Task) {
 	loop.tasks.Done()
 }
 
-func (loop *AbstractEventLoop) Coro(coro Coro) *Handle {
+func (loop *AbstractEventLoop) Coro(f any, args ...any) *Handle {
+	return loop.CreateTask(Coro{f, args})
+}
+
+func (loop *AbstractEventLoop) CreateTask(coro Coro) *Handle {
 	task := coro.ToTask()
 	loop.tasks.Add(1)
 	go loop.run(task)
 	return task.handle
-}
-
-func (loop *AbstractEventLoop) CreateTask(f any, args ...any) *Handle {
-	return loop.Coro(Coro{f, args})
 }
 
 func (loop *AbstractEventLoop) RunUntilComplete() {

@@ -1,6 +1,8 @@
 package asyncio
 
-import "reflect"
+import (
+	"reflect"
+)
 
 type Args []any
 
@@ -37,7 +39,7 @@ func NoArgsFunc(fs ...any) []Coro {
 	return r
 }
 
-func Await(coros []Coro) []*Handle {
+func Await(coros ...Coro) []*Handle {
 	loop := NewEventLoop()
 	r := make([]*Handle, len(coros))
 	for i, coro := range coros {
@@ -51,7 +53,7 @@ func Slice(f any, args []Args) []*Handle {
 	loop := NewEventLoop()
 	r := make([]*Handle, len(args))
 	for i, arg := range args {
-		r[i] = loop.CreateTask(f, arg...)
+		r[i] = loop.Coro(f, arg...)
 	}
 	loop.RunUntilComplete()
 	return r
@@ -62,7 +64,7 @@ func Map[M ~map[K]V, K comparable, V any](f any, m M) []*Handle {
 	r := make([]*Handle, len(m))
 	i := 0
 	for k, v := range m {
-		r[i] = loop.CreateTask(f, Args{k, v})
+		r[i] = loop.Coro(f, k, v)
 		i++
 	}
 	loop.RunUntilComplete()
