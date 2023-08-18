@@ -34,8 +34,15 @@ func (s Student) Me() {
 
 func TestSleep(t *testing.T) {
 	handles := asyncio.Slice(sleep, asyncio.SingleArg(1, 2, 3, 4))
-	h := asyncio.H[float64](handles).To()
-	fmt.Printf("h: %v\n", h)
+
+	// need hint type
+	a := asyncio.To[[]float64](handles)
+	fmt.Printf("a: %v\n", a)
+	// auto infer
+	b := make([]float64, handles.Len())
+	asyncio.To(handles, b)
+	fmt.Printf("b: %v\n", b)
+
 	for i, handle := range handles {
 		fmt.Printf("No.%v sleep() return %v\n", i, handle.Result())
 	}

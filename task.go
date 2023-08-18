@@ -15,7 +15,6 @@ func (t *Task) run() {
 		t.handle.out = append(t.handle.out, v.Interface())
 	}
 	t.handle.done = true
-	t.handle.length = len(t.handle.out)
 }
 
 func (t Task) first() any {
@@ -23,9 +22,8 @@ func (t Task) first() any {
 }
 
 type Handle struct {
-	done   bool
-	length int
-	out    []any
+	done bool
+	out  []any
 }
 
 func (h *Handle) Done() bool {
@@ -33,27 +31,35 @@ func (h *Handle) Done() bool {
 }
 
 func (h *Handle) Len() int {
-	return h.length
+	return len(h.out)
 }
 
 func (h *Handle) Result() []any {
 	return h.out
 }
 
-type H[T any] []*Handle
+type H []*Handle
 
-func (hs H[T]) To() []T {
-	l := 0
-	for _, h := range hs {
-		l += h.Len()
+func (H H) Len() (sum int) {
+	for _, h := range H {
+		sum += h.Len()
 	}
-	rs := make([]T, l)
+	return
+}
+
+func To[S ~[]T, T any](H H, ts ...S) []T {
+	var t []T
+	if len(ts) == 0 {
+		t = make([]T, H.Len())
+	} else {
+		t = ts[0]
+	}
 	i := 0
-	for _, h := range hs {
+	for _, h := range H {
 		for _, r := range h.Result() {
-			rs[i] = r.(T)
+			t[i] = r.(T)
 			i++
 		}
 	}
-	return rs
+	return t
 }

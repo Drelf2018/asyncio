@@ -2,6 +2,7 @@ package asyncio
 
 import (
 	"reflect"
+	"slices"
 )
 
 type Args []any
@@ -39,9 +40,9 @@ func NoArgsFunc(fs ...any) []Coro {
 	return r
 }
 
-func Await(coros ...Coro) []*Handle {
+func Await(coros ...Coro) H {
 	loop := NewEventLoop()
-	r := make([]*Handle, len(coros))
+	r := make(H, len(coros))
 	for i, coro := range coros {
 		r[i] = loop.CreateTask(coro)
 	}
@@ -49,9 +50,9 @@ func Await(coros ...Coro) []*Handle {
 	return r
 }
 
-func Slice(f any, args []Args) []*Handle {
+func Slice(f any, args []Args) H {
 	loop := NewEventLoop()
-	r := make([]*Handle, len(args))
+	r := make(H, len(args))
 	for i, arg := range args {
 		r[i] = loop.Coro(f, arg...)
 	}
@@ -59,9 +60,19 @@ func Slice(f any, args []Args) []*Handle {
 	return r
 }
 
-func Map[M ~map[K]V, K comparable, V any](f any, m M) []*Handle {
+func List(f any, args []Args) H {
 	loop := NewEventLoop()
-	r := make([]*Handle, len(m))
+	r := make(H, len(args))
+	for i, arg := range args {
+		r[i] = loop.Coro(f, slices.Insert(arg, 0, any(i))...)
+	}
+	loop.RunUntilComplete()
+	return r
+}
+
+func Map[M ~map[K]V, K comparable, V any](f any, m M) H {
+	loop := NewEventLoop()
+	r := make(H, len(m))
 	i := 0
 	for k, v := range m {
 		r[i] = loop.Coro(f, k, v)
