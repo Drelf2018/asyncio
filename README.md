@@ -100,7 +100,7 @@ My name is Alice and I'm glad to see you!
 // TestAsyncEvent
 data: 514(int)
 e.Cmd(): __ALL__
-PASS
 test: 3.14(float64)
+PASS
 ok      github.com/Drelf2018/asyncio    6.060s
 ```
