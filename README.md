@@ -40,9 +40,16 @@ func (s Student) Me() {
 }
 
 func TestSleep(t *testing.T) {
-	handles := asyncio.Slice(sleep, asyncio.SingleArg(1, 2, 3, 4))
-	h := asyncio.H[float64](handles).To()
-	fmt.Printf("h: %v\n", h)
+	handles := asyncio.Slice(asyncio.SingleArg(1, 2, 3, 4), sleep)
+
+	// need hint type
+	a := asyncio.To[[]float64](handles)
+	fmt.Printf("a: %v\n", a)
+	// auto infer
+	b := make([]float64, handles.Len())
+	asyncio.To(handles, b)
+	fmt.Printf("b: %v\n", b)
+
 	for i, handle := range handles {
 		fmt.Printf("No.%v sleep() return %v\n", i, handle.Result())
 	}
@@ -54,17 +61,46 @@ func TestStruct(t *testing.T) {
 	coros := asyncio.NoArgsFunc(s.Hello, s.Me)
 	asyncio.Await(append(coros, coro)...)
 }
+
+func TestAsyncEvent(t *testing.T) {
+	a := make(asyncio.AsyncEvent)
+
+	a.OnCommand("danmaku114", func(e *asyncio.Event) {
+		data := e.Data()
+		fmt.Printf("data: %v(%T)\n", data, data)
+	})
+
+	a.OnRegexp(`danmaku\d`, func(e *asyncio.Event) {
+		e.Set("test", 3.14)
+		test := e.Get("test")
+		fmt.Printf("test: %v(%T)\n", test, test)
+	})
+
+	a.All(
+		func(e *asyncio.Event) { fmt.Printf("e.Cmd(): %v\n", e.Cmd()) },
+		func(e *asyncio.Event) { e.Abort() },
+		func(e *asyncio.Event) { fmt.Println("Not stop") },
+	)
+
+	a.Dispatch("danmaku114", 514)
+}
 ```
 
 ```c
-// console
-h: [1 1.4142135623730951 1.7320508075688772 2]
+// TestSleep
+a: [1 1.4142135623730951 1.7320508075688772 2]
+b: [1 1.4142135623730951 1.7320508075688772 2]
 No.0 sleep() return [1]
 No.1 sleep() return [1.4142135623730951]
 No.2 sleep() return [1.7320508075688772]
 No.3 sleep() return [2]
+// TestStruct
 Hello Alice
 My name is Alice and I'm glad to see you!
+// TestAsyncEvent
+data: 514(int)
+e.Cmd(): __ALL__
 PASS
-ok      github.com/Drelf2018/asyncio    6.044s
+test: 3.14(float64)
+ok      github.com/Drelf2018/asyncio    6.060s
 ```

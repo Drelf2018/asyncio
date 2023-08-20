@@ -33,7 +33,7 @@ func (s Student) Me() {
 }
 
 func TestSleep(t *testing.T) {
-	handles := asyncio.Slice(sleep, asyncio.SingleArg(1, 2, 3, 4))
+	handles := asyncio.Slice(asyncio.SingleArg(1, 2, 3, 4), sleep)
 
 	// need hint type
 	a := asyncio.To[[]float64](handles)
@@ -53,4 +53,27 @@ func TestStruct(t *testing.T) {
 	coro := asyncio.C(s.Introduce, "I'm glad to see you!")
 	coros := asyncio.NoArgsFunc(s.Hello, s.Me)
 	asyncio.Await(append(coros, coro)...)
+}
+
+func TestAsyncEvent(t *testing.T) {
+	a := make(asyncio.AsyncEvent)
+
+	a.OnCommand("danmaku114", func(e *asyncio.Event) {
+		data := e.Data()
+		fmt.Printf("data: %v(%T)\n", data, data)
+	})
+
+	a.OnRegexp(`danmaku\d`, func(e *asyncio.Event) {
+		e.Set("test", 3.14)
+		test := e.Get("test")
+		fmt.Printf("test: %v(%T)\n", test, test)
+	})
+
+	a.All(
+		func(e *asyncio.Event) { fmt.Printf("e.Cmd(): %v\n", e.Cmd()) },
+		func(e *asyncio.Event) { e.Abort() },
+		func(e *asyncio.Event) { fmt.Println("Not stop") },
+	)
+
+	a.Dispatch("danmaku114", 514)
 }

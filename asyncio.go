@@ -50,7 +50,7 @@ func Await(coros ...Coro) H {
 	return r
 }
 
-func Slice(f any, args []Args) H {
+func Slice(args []Args, f any) H {
 	loop := NewEventLoop()
 	r := make(H, len(args))
 	for i, arg := range args {
@@ -60,7 +60,7 @@ func Slice(f any, args []Args) H {
 	return r
 }
 
-func List(f any, args []Args) H {
+func List(args []Args, f any) H {
 	loop := NewEventLoop()
 	r := make(H, len(args))
 	for i, arg := range args {
@@ -70,7 +70,7 @@ func List(f any, args []Args) H {
 	return r
 }
 
-func Map[M ~map[K]V, K comparable, V any](f any, m M) H {
+func Map[M ~map[K]V, K comparable, V any](m M, f any) H {
 	loop := NewEventLoop()
 	r := make(H, len(m))
 	i := 0
