@@ -5,9 +5,10 @@ import (
 )
 
 type Task struct {
-	Func   reflect.Value
-	Args   []reflect.Value
-	handle *Handle
+	Func     reflect.Value
+	Args     []reflect.Value
+	handle   *Handle
+	callback func([]any)
 }
 
 func (t *Task) run() {
@@ -15,10 +16,25 @@ func (t *Task) run() {
 		t.handle.out = append(t.handle.out, v.Interface())
 	}
 	t.handle.done = true
+	if t.callback != nil {
+		t.callback(t.handle.out)
+	}
 }
 
-func (t Task) first() any {
-	return t.Func.Call(t.Args)[0].Interface()
+func (t *Task) Bool() bool {
+	t.run()
+	if len(t.handle.out) == 0 {
+		return false
+	}
+	return t.handle.out[0].(bool)
+}
+
+func (t *Task) Error() error {
+	t.run()
+	if len(t.handle.out) == 0 {
+		return nil
+	}
+	return t.handle.out[0].(error)
 }
 
 type Handle struct {

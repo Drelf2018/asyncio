@@ -76,4 +76,16 @@ func TestAsyncEvent(t *testing.T) {
 	)
 
 	a.Dispatch("danmaku114", 514)
+
+	count := 0
+	tn := time.Now()
+	a.Heartbeat(0, 2, func(stop func()) {
+		time.Sleep(time.Duration(3) * time.Second)
+		fmt.Printf("time.Since(t): %v\n", time.Since(tn))
+		count++
+
+		if count == 6 {
+			stop()
+		}
+	})
 }

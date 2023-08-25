@@ -21,11 +21,15 @@ type Coro struct {
 }
 
 func (c Coro) ToTask() *Task {
+	return c.Callback(nil)
+}
+
+func (c Coro) Callback(f func([]any)) *Task {
 	r := make([]reflect.Value, len(c.Args))
 	for i, arg := range c.Args {
 		r[i] = reflect.ValueOf(arg)
 	}
-	return &Task{reflect.ValueOf(c.Func), r, new(Handle)}
+	return &Task{reflect.ValueOf(c.Func), r, new(Handle), f}
 }
 
 func C(f any, args ...any) Coro {

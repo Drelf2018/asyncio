@@ -2,6 +2,7 @@ package asyncio
 
 import (
 	"regexp"
+	"time"
 )
 
 type Event struct {
@@ -118,5 +119,20 @@ func (a AsyncEvent) Dispatch(cmd string, data any) {
 
 	if cmd != "__ALL__" {
 		a.Dispatch("__ALL__", data)
+	}
+}
+
+func (a AsyncEvent) Heartbeat(initdead, keepalive int, f func(stop func())) {
+	time.Sleep(time.Duration(initdead) * time.Second)
+	ticker := time.NewTicker(time.Duration(keepalive) * time.Second)
+	stopChan := make(chan any)
+	for {
+		select {
+		case <-ticker.C:
+			go f(func() { stopChan <- struct{}{} })
+		case <-stopChan:
+			ticker.Stop()
+			return
+		}
 	}
 }
