@@ -20,7 +20,7 @@ type Coro struct {
 	Args Args
 }
 
-func (c Coro) ToTask() *Task {
+func (c Coro) Task() *Task {
 	return c.Callback(nil)
 }
 

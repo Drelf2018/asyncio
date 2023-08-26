@@ -86,7 +86,7 @@ func (a AsyncEvent) On(name, cmd string, handles ...func(*Event)) func() {
 				return err == nil && matched
 			})
 		default:
-			panic("Should register \"" + name + "\" first")
+			panic("Should register \"" + name + "\" first.")
 		}
 	}
 	a[name].cm[cmd] = append(a[name].cm[cmd], handles)
@@ -122,14 +122,24 @@ func (a AsyncEvent) Dispatch(cmd string, data any) {
 	}
 }
 
-func (a AsyncEvent) Heartbeat(initdead, keepalive int, f func(stop func())) {
+var stopChans = make(map[string]chan any)
+
+func Stop(name string) {
+	if ch, ok := stopChans[name]; ok {
+		ch <- struct{}{}
+	}
+}
+
+func Heartbeat(initdead, keepalive int, name string, f func()) {
+	Stop(name)
 	time.Sleep(time.Duration(initdead) * time.Second)
 	ticker := time.NewTicker(time.Duration(keepalive) * time.Second)
 	stopChan := make(chan any)
+	stopChans[name] = stopChan
 	for {
 		select {
 		case <-ticker.C:
-			go f(func() { stopChan <- struct{}{} })
+			go f()
 		case <-stopChan:
 			ticker.Stop()
 			return

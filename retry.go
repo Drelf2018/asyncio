@@ -22,7 +22,7 @@ func Retry(times, delay int, f func() bool) {
 
 // 重试函数 支持参数
 func RetryWith[T any](times, delay int, coro Coro) {
-	task := coro.ToTask()
+	task := coro.Task()
 	Retry(times, delay, task.Bool)
 }
 
@@ -33,6 +33,6 @@ func RetryError(times, delay int, f func() error) {
 
 // 重试函数 通过是否抛出 error 判断 支持参数
 func RetryErrorWith(times, delay int, coro Coro) {
-	task := coro.ToTask()
+	task := coro.Task()
 	RetryError(times, delay, task.Error)
 }
