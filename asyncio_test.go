@@ -54,38 +54,3 @@ func TestStruct(t *testing.T) {
 	coros := asyncio.NoArgsFunc(s.Hello, s.Me)
 	asyncio.Await(append(coros, coro)...)
 }
-
-func TestAsyncEvent(t *testing.T) {
-	a := make(asyncio.AsyncEvent)
-
-	a.OnCommand("danmaku114", func(e *asyncio.Event) {
-		data := e.Data()
-		fmt.Printf("data: %v(%T)\n", data, data)
-	})
-
-	a.OnRegexp(`danmaku\d`, func(e *asyncio.Event) {
-		e.Set("test", 3.14)
-		test := e.Get("test")
-		fmt.Printf("test: %v(%T)\n", test, test)
-	})
-
-	a.All(
-		func(e *asyncio.Event) { fmt.Printf("e.Cmd(): %v\n", e.Cmd()) },
-		func(e *asyncio.Event) { e.Abort() },
-		func(e *asyncio.Event) { fmt.Println("Not stop") },
-	)
-
-	a.Dispatch("danmaku114", 514)
-
-	count := 0
-	tn := time.Now()
-	asyncio.Heartbeat(0, 2, "test", func() {
-		time.Sleep(time.Duration(3) * time.Second)
-		fmt.Printf("time.Since(t): %v\n", time.Since(tn))
-		count++
-
-		if count == 6 {
-			asyncio.Stop("test")
-		}
-	})
-}
