@@ -47,7 +47,7 @@ func (loop *AbstractEventLoop) Coro(f any, args ...any) *Handle {
 func (loop *AbstractEventLoop) CreateTask(coro Coro) *Handle {
 	task := coro.Task()
 	loop.tasks.Add(1)
-	go loop.run(task)
+	go loop.Run(task)
 	return task.handle
 }
 

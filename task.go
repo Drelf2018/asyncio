@@ -11,7 +11,7 @@ type Task struct {
 	callback func([]any)
 }
 
-func (t *Task) run() {
+func (t *Task) Run() {
 	for _, v := range t.Func.Call(t.Args) {
 		t.handle.out = append(t.handle.out, v.Interface())
 	}
@@ -22,7 +22,7 @@ func (t *Task) run() {
 }
 
 func (t *Task) Bool() bool {
-	t.run()
+	t.Run()
 	if len(t.handle.out) == 0 {
 		return false
 	}
@@ -30,7 +30,7 @@ func (t *Task) Bool() bool {
 }
 
 func (t *Task) Error() error {
-	t.run()
+	t.Run()
 	if len(t.handle.out) == 0 {
 		return nil
 	}
