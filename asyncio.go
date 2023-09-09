@@ -44,7 +44,7 @@ func NoArgsFunc(fs ...any) []Coro {
 	return r
 }
 
-func Await(coros ...Coro) H {
+func Wait(coros ...Coro) H {
 	loop := NewEventLoop()
 	r := make(H, len(coros))
 	for i, coro := range coros {

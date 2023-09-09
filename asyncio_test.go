@@ -52,5 +52,5 @@ func TestStruct(t *testing.T) {
 	s := Student{"Alice"}
 	coro := asyncio.C(s.Introduce, "I'm glad to see you!")
 	coros := asyncio.NoArgsFunc(s.Hello, s.Me)
-	asyncio.Await(append(coros, coro)...)
+	asyncio.Wait(append(coros, coro)...)
 }
