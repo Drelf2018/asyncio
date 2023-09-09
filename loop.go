@@ -35,7 +35,6 @@ type AbstractEventLoop struct {
 }
 
 func (loop *AbstractEventLoop) Run(task *Task) {
-	loop.tasks.Add(1)
 	defer loop.tasks.Done()
 	loop.frozen.Wait()
 	task.Run()
@@ -47,6 +46,7 @@ func (loop *AbstractEventLoop) Coro(f any, args ...any) *Handle {
 
 func (loop *AbstractEventLoop) CreateTask(coro Coro) *Handle {
 	task := coro.Task()
+	loop.tasks.Add(1)
 	go loop.Run(task)
 	return task.handle
 }
