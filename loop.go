@@ -8,7 +8,7 @@ var global *AbstractEventLoop
 
 func NewEventLoop() *AbstractEventLoop {
 	loop := new(AbstractEventLoop)
-	loop.canRun.Add(1)
+	loop.frozen.Add(1)
 	return loop
 }
 
@@ -24,20 +24,21 @@ func SetEventLoop(loop *AbstractEventLoop) {
 
 func GetEventLoop() *AbstractEventLoop {
 	if global == nil {
-		panic("There has no eventloop.")
+		panic("There is no current eventloop.")
 	}
 	return global
 }
 
 type AbstractEventLoop struct {
 	tasks  sync.WaitGroup
-	canRun sync.WaitGroup
+	frozen sync.WaitGroup
 }
 
-func (loop *AbstractEventLoop) run(task *Task) {
-	loop.canRun.Wait()
-	task.run()
-	loop.tasks.Done()
+func (loop *AbstractEventLoop) Run(task *Task) {
+	loop.tasks.Add(1)
+	defer loop.tasks.Done()
+	loop.frozen.Wait()
+	task.Run()
 }
 
 func (loop *AbstractEventLoop) Coro(f any, args ...any) *Handle {
@@ -46,13 +47,12 @@ func (loop *AbstractEventLoop) Coro(f any, args ...any) *Handle {
 
 func (loop *AbstractEventLoop) CreateTask(coro Coro) *Handle {
 	task := coro.Task()
-	loop.tasks.Add(1)
 	go loop.Run(task)
 	return task.handle
 }
 
 func (loop *AbstractEventLoop) RunUntilComplete() {
-	loop.canRun.Done()
+	loop.frozen.Done()
 	loop.tasks.Wait()
 }
 
