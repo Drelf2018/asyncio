@@ -54,6 +54,14 @@ func Wait(coros ...Coro) H {
 	return r
 }
 
+func ForEach[T any](args []T, f func(T)) {
+	loop := NewEventLoop()
+	for _, arg := range args {
+		loop.Coro(f, arg)
+	}
+	loop.RunUntilComplete()
+}
+
 func Slice(args []Args, f any) H {
 	loop := NewEventLoop()
 	r := make(H, len(args))
