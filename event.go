@@ -1,6 +1,7 @@
 package asyncio
 
 import (
+	"fmt"
 	"regexp"
 	"time"
 
@@ -15,6 +16,7 @@ type Event struct {
 	data    any
 	env     map[string]any
 	aborted bool
+	ch      chan any
 }
 
 func (e *Event) New() {
@@ -23,7 +25,7 @@ func (e *Event) New() {
 }
 
 func (e *Event) Set(x ...any) {
-	e.cmd = x[0].(string)
+	e.cmd = fmt.Sprintf("%v", x[0])
 	e.data = x[1]
 }
 
@@ -34,6 +36,10 @@ func (e *Event) Reset() {
 
 func (e *Event) Cmd() string {
 	return e.cmd
+}
+
+func (e Event) String() string {
+	return fmt.Sprintf("Event(%v, %v, %v)", e.cmd, e.data, e.env)
 }
 
 func (e *Event) Data(x any) error {
@@ -53,6 +59,9 @@ func (e *Event) Get(name string, x any, _default any) error {
 
 func (e *Event) Abort() {
 	e.aborted = true
+	if e.ch != nil {
+		e.ch <- struct{}{}
+	}
 }
 
 func WithData[T any](handles ...func(*Event, T)) func(*Event) {
@@ -87,47 +96,54 @@ func (c chain) start(e *Event) {
 
 type chains []chain
 
-func (cs chains) call(cmd string, data any) {
+func (cs chains) call(cmd, data any) {
 	for _, c := range utils.NotNilSlice(cs) {
 		go c.start(eventPool.Get(cmd, data))
 	}
 }
 
-type model struct {
-	chains map[string]chains
-	match  func(cmd, key string) bool
+type model[K comparable] struct {
+	chains map[K]chains
+	match  func(cmd, key K) bool
 }
 
-func (m *model) run(cmd string, data any) {
-	Map(m.chains, func(key string, cs chains) {
+func (m *model[K]) run(cmd K, data any) {
+	Map(m.chains, func(key K, cs chains) {
 		if m.match(cmd, key) {
 			cs.call(cmd, data)
 		}
 	})
 }
 
-type AsyncEvent map[string]model
+type AsyncEvent[K comparable] map[string]model[K]
 
-const ALL = "__ALL__"
+const (
+	MIN int    = -2147483648
+	ALL string = "__ALL__"
+)
 
-func (a AsyncEvent) Register(name string, match func(cmd, key string) bool) {
+func (a AsyncEvent[K]) Register(name string, match func(cmd, key K) bool) {
 	if match == nil {
 		return
 	}
-	a[name] = model{make(map[string]chains), match}
+	a[name] = model[K]{make(map[K]chains), match}
 }
 
-func (a AsyncEvent) On(name, cmd string, handles ...func(*Event)) func() {
+func (a AsyncEvent[K]) On(name string, cmd K, handles ...func(*Event)) func() {
 	m, ok := a[name]
 	if !ok {
 		switch name {
 		case "command":
-			a.Register(name, func(cmd, key string) bool { return cmd == key })
+			a.Register(name, func(cmd, key K) bool { return cmd == key })
 		case "regexp":
-			a.Register(name, func(cmd, key string) bool {
-				matched, err := regexp.MatchString(key, cmd)
-				return err == nil && matched
-			})
+			if v, ok := any(a).(AsyncEvent[string]); ok {
+				v.Register(name, func(cmd, key string) bool {
+					matched, err := regexp.MatchString(key, cmd)
+					return err == nil && matched
+				})
+				break
+			}
+			fallthrough
 		default:
 			panic("You should register \"" + name + "\" first.")
 		}
@@ -138,22 +154,36 @@ func (a AsyncEvent) On(name, cmd string, handles ...func(*Event)) func() {
 	return func() { m.chains[cmd][l] = nil }
 }
 
-func (a AsyncEvent) OnCommand(cmd string, handles ...func(*Event)) func() {
+func (a AsyncEvent[K]) OnCommand(cmd K, handles ...func(*Event)) func() {
 	return a.On("command", cmd, handles...)
 }
 
-func (a AsyncEvent) OnRegexp(pattern string, handles ...func(*Event)) func() {
+func (a AsyncEvent[string]) OnRegexp(pattern string, handles ...func(*Event)) func() {
 	return a.On("regexp", pattern, handles...)
 }
 
-func (a AsyncEvent) OnAll(handles ...func(*Event)) func() {
-	return a.On("command", ALL, handles...)
+func (a AsyncEvent[K]) OnAll(handles ...func(*Event)) func() {
+	switch v := any(a).(type) {
+	case AsyncEvent[string]:
+		return v.On("command", ALL, handles...)
+	case AsyncEvent[int]:
+		return v.On("command", MIN, handles...)
+	default:
+		return nil
+	}
 }
 
-func (a AsyncEvent) Dispatch(cmd string, data any) {
-	Map(a, func(s string, m model) { m.run(cmd, data) })
-	if cmd != ALL {
-		a.Dispatch(ALL, data)
+func (a AsyncEvent[K]) Dispatch(cmd K, data any) {
+	Map(a, func(s string, m model[K]) { m.run(cmd, data) })
+	switch v := any(a).(type) {
+	case AsyncEvent[string]:
+		if any(cmd).(string) != ALL {
+			v.Dispatch(ALL, data)
+		}
+	case AsyncEvent[int]:
+		if any(cmd).(int) != MIN {
+			v.Dispatch(MIN, data)
+		}
 	}
 }
 
@@ -164,6 +194,7 @@ func Heartbeat(initdead, keepalive float64, f func(*Event)) {
 	defer ticker.Stop()
 
 	e := eventPool.Get("Heartbeat", 0)
+	e.ch = make(chan any)
 	defer eventPool.Put(e)
 
 	do := func() {
@@ -172,10 +203,13 @@ func Heartbeat(initdead, keepalive float64, f func(*Event)) {
 	}
 
 	go do()
-	for range ticker.C {
-		if e.aborted {
-			break
+	for {
+		select {
+		case <-ticker.C:
+			go do()
+		case <-e.ch:
+			close(e.ch)
+			return
 		}
-		go do()
 	}
 }
