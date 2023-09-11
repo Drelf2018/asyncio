@@ -61,30 +61,9 @@ func TestStruct(t *testing.T) {
 	coros := asyncio.NoArgsFunc(s.Hello, s.Me)
 	asyncio.Await(append(coros, coro)...)
 }
-
-func TestAsyncEvent(t *testing.T) {
-	a := make(asyncio.AsyncEvent)
-
-	a.OnCommand("danmaku114", func(e *asyncio.Event) {
-		data := e.Data()
-		fmt.Printf("data: %v(%T)\n", data, data)
-	})
-
-	a.OnRegexp(`danmaku\d`, func(e *asyncio.Event) {
-		e.Set("test", 3.14)
-		test := e.Get("test")
-		fmt.Printf("test: %v(%T)\n", test, test)
-	})
-
-	a.All(
-		func(e *asyncio.Event) { fmt.Printf("e.Cmd(): %v\n", e.Cmd()) },
-		func(e *asyncio.Event) { e.Abort() },
-		func(e *asyncio.Event) { fmt.Println("Not stop") },
-	)
-
-	a.Dispatch("danmaku114", 514)
-}
 ```
+
+#### 控制台
 
 ```c
 // TestSleep
@@ -97,10 +76,4 @@ No.3 sleep() return [2]
 // TestStruct
 Hello Alice
 My name is Alice and I'm glad to see you!
-// TestAsyncEvent
-data: 514(int)
-e.Cmd(): __ALL__
-test: 3.14(float64)
-PASS
-ok      github.com/Drelf2018/asyncio    6.060s
 ```
