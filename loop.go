@@ -44,8 +44,17 @@ func (loop *AbstractEventLoop) Coro(f any, args ...any) *Handle {
 	return loop.CreateTask(Coro{f, args})
 }
 
-func (loop *AbstractEventLoop) CreateTask(coro Coro) *Handle {
-	task := coro.Task()
+func (loop *AbstractEventLoop) Callback(callback func([]any), f any, args ...any) *Handle {
+	return loop.CreateTask(Coro{f, args}, callback)
+}
+
+func (loop *AbstractEventLoop) CreateTask(coro Coro, callback ...func([]any)) *Handle {
+	var task *Task
+	if len(callback) == 0 {
+		task = coro.Task()
+	} else {
+		task = coro.Callback(callback[0])
+	}
 	loop.tasks.Add(1)
 	go loop.Run(task)
 	return task.handle

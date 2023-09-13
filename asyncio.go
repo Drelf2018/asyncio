@@ -54,6 +54,12 @@ func Wait(coros ...Coro) H {
 	return r
 }
 
+func Do(f func(loop *AbstractEventLoop)) {
+	loop := NewEventLoop()
+	f(loop)
+	loop.RunUntilComplete()
+}
+
 func ForEach[T any](args []T, f func(T)) {
 	loop := NewEventLoop()
 	for _, arg := range args {
