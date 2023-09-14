@@ -44,58 +44,64 @@ func NoArgsFunc(fs ...any) []Coro {
 	return r
 }
 
-func Wait(coros ...Coro) H {
-	loop := NewEventLoop()
-	r := make(H, len(coros))
-	for i, coro := range coros {
-		r[i] = loop.CreateTask(coro)
-	}
-	loop.RunUntilComplete()
-	return r
-}
-
 func Do(f func(loop *AbstractEventLoop)) {
 	loop := NewEventLoop()
 	f(loop)
 	loop.RunUntilComplete()
 }
 
+func Wait(coros ...Coro) H {
+	r := make(H, len(coros))
+	Do(func(loop *AbstractEventLoop) {
+		for i, l := 0, len(coros); i < l; i++ {
+			r[i] = loop.CreateTask(coros[i])
+		}
+	})
+	return r
+}
+
 func ForEach[T any](args []T, f func(T)) {
-	loop := NewEventLoop()
-	for _, arg := range args {
-		loop.Coro(f, arg)
-	}
-	loop.RunUntilComplete()
+	Do(func(loop *AbstractEventLoop) {
+		for i, l := 0, len(args); i < l; i++ {
+			loop.Coro(f, args[i])
+		}
+	})
+}
+
+func ForEachP[T any](args []T, f func(*T)) {
+	Do(func(loop *AbstractEventLoop) {
+		for i, l := 0, len(args); i < l; i++ {
+			loop.Coro(f, &args[i])
+		}
+	})
 }
 
 func Slice(args []Args, f any) H {
-	loop := NewEventLoop()
 	r := make(H, len(args))
-	for i, arg := range args {
-		r[i] = loop.Coro(f, arg...)
-	}
-	loop.RunUntilComplete()
+	Do(func(loop *AbstractEventLoop) {
+		for i, l := 0, len(args); i < l; i++ {
+			r[i] = loop.Coro(f, args[i]...)
+		}
+	})
 	return r
 }
 
 func List(args []Args, f any) H {
-	loop := NewEventLoop()
 	r := make(H, len(args))
-	for i, arg := range args {
-		r[i] = loop.Coro(f, slices.Insert(arg, 0, any(i))...)
-	}
-	loop.RunUntilComplete()
+	Do(func(loop *AbstractEventLoop) {
+		for i, arg := range args {
+			r[i] = loop.Coro(f, slices.Insert(arg, 0, any(i))...)
+		}
+	})
 	return r
 }
 
 func Map[M ~map[K]V, K comparable, V any](m M, f any) H {
-	loop := NewEventLoop()
-	r := make(H, len(m))
-	i := 0
-	for k, v := range m {
-		r[i] = loop.Coro(f, k, v)
-		i++
-	}
-	loop.RunUntilComplete()
+	r := make(H, 0, len(m))
+	Do(func(loop *AbstractEventLoop) {
+		for k, v := range m {
+			r = append(r, loop.Coro(f, k, v))
+		}
+	})
 	return r
 }
