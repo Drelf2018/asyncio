@@ -1,3 +1,5 @@
 module github.com/Drelf2018/asyncio
 
-go 1.21.0
+go 1.18
+
+require golang.org/x/exp v0.0.0-20230905200255-921286631fa9

@@ -2,7 +2,8 @@ package asyncio
 
 import (
 	"reflect"
-	"slices"
+
+	"golang.org/x/exp/slices"
 )
 
 type Args []any
