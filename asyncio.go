@@ -1,107 +1,102 @@
 package asyncio
 
 import (
-	"reflect"
-	"slices"
+	"sync"
 )
 
-type Args []any
-
-func SingleArg[T any](args ...T) []Args {
-	r := make([]Args, len(args))
-	for i, arg := range args {
-		r[i] = Args{arg}
-	}
-	return r
+func CreateTask(fn any, args ...any) *Task {
+	return GetEventLoop().CreateTask(fn, args...)
 }
 
-type Coro struct {
-	Func any
-	Args Args
+func RunUntilComplete(tasks ...*Task) {
+	GetEventLoop().RunUntilComplete(tasks...)
 }
 
-func (c Coro) Task() *Task {
-	return c.Callback(nil)
+func RunForever(tasks ...*Task) {
+	GetEventLoop().RunForever(tasks...)
 }
 
-func (c Coro) Callback(f func([]any)) *Task {
-	r := make([]reflect.Value, len(c.Args))
-	for i, arg := range c.Args {
-		r[i] = reflect.ValueOf(arg)
-	}
-	return &Task{reflect.ValueOf(c.Func), r, new(Handle), f}
+func WaitGroup(delta int, f func(done func())) {
+	wg := &sync.WaitGroup{}
+	wg.Add(delta)
+	f(wg.Done)
+	wg.Wait()
 }
 
-func C(f any, args ...any) Coro {
-	return Coro{f, args}
-}
-
-func NoArgsFunc(fs ...any) []Coro {
-	r := make([]Coro, len(fs))
-	for i, f := range fs {
-		r[i] = Coro{Func: f}
-	}
-	return r
-}
-
-func Do(f func(loop *AbstractEventLoop)) {
+func Loop(f func(loop EventLoop)) {
 	loop := NewEventLoop()
+	loop.Start()
 	f(loop)
 	loop.RunUntilComplete()
 }
 
-func Wait(coros ...Coro) H {
-	r := make(H, len(coros))
-	Do(func(loop *AbstractEventLoop) {
-		for i, l := 0, len(coros); i < l; i++ {
-			r[i] = loop.CreateTask(coros[i])
-		}
-	})
-	return r
+func Wait(tasks ...*Task) {
+	NewEventLoop().RunUntilComplete(tasks...)
 }
 
-func ForEach[T any](args []T, f func(T)) {
-	Do(func(loop *AbstractEventLoop) {
-		for i, l := 0, len(args); i < l; i++ {
-			loop.Coro(f, args[i])
+func ForEach[S ~[]E, E any](args S, f func(E)) {
+	l := len(args)
+	WaitGroup(l, func(done func()) {
+		exec := func(i int) {
+			defer done()
+			f(args[i])
 		}
-	})
-}
-
-func ForEachP[T any](args []T, f func(*T)) {
-	Do(func(loop *AbstractEventLoop) {
-		for i, l := 0, len(args); i < l; i++ {
-			loop.Coro(f, &args[i])
+		for i := 0; i < l; i++ {
+			go exec(i)
 		}
 	})
 }
 
-func Slice(args []Args, f any) H {
-	r := make(H, len(args))
-	Do(func(loop *AbstractEventLoop) {
-		for i, l := 0, len(args); i < l; i++ {
-			r[i] = loop.Coro(f, args[i]...)
+func ForEachPtr[S ~[]E, E any](args S, f func(*E)) {
+	l := len(args)
+	WaitGroup(l, func(done func()) {
+		exec := func(i int) {
+			defer done()
+			f(&args[i])
+		}
+		for i := 0; i < l; i++ {
+			go exec(i)
 		}
 	})
-	return r
 }
 
-func List(args []Args, f any) H {
-	r := make(H, len(args))
-	Do(func(loop *AbstractEventLoop) {
-		for i, arg := range args {
-			r[i] = loop.Coro(f, slices.Insert(arg, 0, any(i))...)
+func Map[M ~map[K]V, K comparable, V any](m M, f func(K, V)) {
+	WaitGroup(len(m), func(done func()) {
+		exec := func(k K, v V) {
+			defer done()
+			f(k, v)
 		}
-	})
-	return r
-}
-
-func Map[M ~map[K]V, K comparable, V any](m M, f any) H {
-	r := make(H, 0, len(m))
-	Do(func(loop *AbstractEventLoop) {
 		for k, v := range m {
-			r = append(r, loop.Coro(f, k, v))
+			go exec(k, v)
 		}
 	})
-	return r
+}
+
+func Slice[S ~[]E, E any](args S, f any) (tasks []*Task) {
+	task := CreateTask(f)
+	for _, arg := range args {
+		if in, ok := any(arg).([]any); ok {
+			tasks = append(tasks, task.Copy(in...))
+		} else {
+			tasks = append(tasks, task.Copy(arg))
+		}
+	}
+	Wait(tasks...)
+	return
+}
+
+func Fill[S ~[]E, E any](tasks []*Task, s S, position ...int) {
+	p := 0
+	if len(position) != 0 {
+		p = position[0]
+	}
+	for idx, task := range tasks {
+		s[idx] = task.result[p].(E)
+	}
+}
+
+func Results[E any](tasks []*Task, position ...int) []E {
+	s := make([]E, len(tasks))
+	Fill(tasks, s, position...)
+	return s
 }

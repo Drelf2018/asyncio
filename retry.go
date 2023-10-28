@@ -11,28 +11,24 @@ import (
 // delay: 休眠秒数 每次重试间休眠时间
 //
 // f: 要重试的函数
-func Retry(times, delay int, f func() bool) {
+func Retry(times int, delay float64, f func() bool) bool {
 	for ; times != 0 && !f(); times-- {
-		if times > 0 {
-			println("剩余重试次数:", times-1)
-		}
-		time.Sleep(time.Duration(delay) * time.Second)
+		time.Sleep(time.Duration(1000*delay) * time.Millisecond)
 	}
+	return times != 0
 }
 
 // 重试函数 支持参数
-func RetryWith[T any](times, delay int, coro Coro) {
-	task := coro.Task()
-	Retry(times, delay, task.Bool)
+func RetryTask(times int, delay float64, task *Task) bool {
+	return Retry(times, delay, func() bool { return task.Run().Bool() })
 }
 
 // 重试函数 通过是否抛出 error 判断
-func RetryError(times, delay int, f func() error) {
-	Retry(times, delay, func() bool { return f() == nil })
+func RetryError(times int, delay float64, f func() error) bool {
+	return Retry(times, delay, func() bool { return f() == nil })
 }
 
 // 重试函数 通过是否抛出 error 判断 支持参数
-func RetryErrorWith(times, delay int, coro Coro) {
-	task := coro.Task()
-	RetryError(times, delay, task.Error)
+func RetryErrorTask(times int, delay float64, task *Task) bool {
+	return Retry(times, delay, func() bool { return task.Run().Error() == nil })
 }

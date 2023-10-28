@@ -1,81 +1,116 @@
 package asyncio
 
 import (
+	"errors"
 	"reflect"
 )
 
+var (
+	ErrNoResult       = errors.New("task has no rusult")
+	ErrNoSecondResult = errors.New("task has no second rusult")
+)
+
 type Task struct {
-	Func     reflect.Value
-	Args     []reflect.Value
-	handle   *Handle
-	callback func([]any)
+	Func reflect.Value
+	Args []reflect.Value
+	out  []reflect.Value
+
+	done     bool
+	result   []any
+	callback func(*Task)
 }
 
-func (t *Task) Run() {
-	for _, v := range t.Func.Call(t.Args) {
-		t.handle.out = append(t.handle.out, v.Interface())
+func (t *Task) AddDoneCallback(c func(*Task)) *Task {
+	t.callback = c
+	if t.done {
+		c(t)
 	}
-	t.handle.done = true
+	return t
+}
+
+func (t *Task) Done() bool {
+	return t.done
+}
+
+func (t *Task) Result() []any {
+	return t.result
+}
+
+func (t *Task) Default(args ...any) *Task {
+	l := len(args)
+	t.Args = make([]reflect.Value, l)
+	for i := 0; i < l; i++ {
+		t.Args[i] = reflect.ValueOf(args[i])
+	}
+	return t
+}
+
+func (t *Task) Reflect(args reflect.Value) *Task {
+	l := args.Len()
+	t.Args = make([]reflect.Value, l)
+	for i := 0; i < l; i++ {
+		t.Args[i] = args.Index(i)
+	}
+	return t
+}
+
+func (t *Task) Copy(args ...any) *Task {
+	return (&Task{Func: t.Func}).Default(args...)
+}
+
+func (t *Task) Run() *Task {
+	t.out = t.Func.Call(t.Args)
+	t.result = make([]any, len(t.out))
+	for i, v := range t.out {
+		t.result[i] = v.Interface()
+	}
+	t.done = true
 	if t.callback != nil {
-		t.callback(t.handle.out)
+		t.callback(t)
 	}
+	return t
+}
+
+func (t *Task) First() any {
+	if len(t.result) < 1 {
+		panic(ErrNoResult)
+	}
+	return t.result[0]
+}
+
+func (t *Task) Second() any {
+	if len(t.result) < 2 {
+		panic(ErrNoSecondResult)
+	}
+	return t.result[1]
 }
 
 func (t *Task) Bool() bool {
-	t.Run()
-	if len(t.handle.out) == 0 {
-		return false
-	}
-	return t.handle.out[0].(bool)
+	return t.First().(bool)
 }
 
 func (t *Task) Error() error {
-	t.Run()
-	if len(t.handle.out) == 0 {
-		return nil
+	if e := t.First(); e != nil {
+		return e.(error)
 	}
-	return t.handle.out[0].(error)
+	return nil
 }
 
-type Handle struct {
-	done bool
-	out  []any
+func (t *Task) Check() bool {
+	return t.Error() == nil
 }
 
-func (h *Handle) Done() bool {
-	return h.done
+func (t *Task) Bool2() bool {
+	return t.Second().(bool)
 }
 
-func (h *Handle) Len() int {
-	return len(h.out)
-}
-
-func (h *Handle) Result() []any {
-	return h.out
-}
-
-type H []*Handle
-
-func (H H) Len() (sum int) {
-	for _, h := range H {
-		sum += h.Len()
+func (t *Task) Error2() error {
+	if e := t.Second(); e != nil {
+		return e.(error)
 	}
-	return
+	return nil
 }
 
-func To[S ~[]T, T any](H H, ts ...S) []T {
-	var t []T
-	if len(ts) == 0 {
-		t = make([]T, H.Len())
-	} else {
-		t = ts[0]
-	}
-	i := 0
-	for _, h := range H {
-		for _, r := range h.Result() {
-			t[i] = r.(T)
-			i++
-		}
-	}
-	return t
+func (t *Task) Check2() bool {
+	return t.Error2() == nil
 }

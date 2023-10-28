@@ -1,71 +1,83 @@
 package asyncio
 
 import (
+	"reflect"
 	"sync"
 )
 
-var global *AbstractEventLoop
+type EventLoop interface {
+	CreateTask(fn any, args ...any) *Task
+	Run(task *Task)
 
-func NewEventLoop() *AbstractEventLoop {
-	loop := new(AbstractEventLoop)
-	loop.frozen.Add(1)
-	return loop
+	Start()
+	RunUntilComplete(tasks ...*Task)
+
+	RunForever(tasks ...*Task)
+	Stop()
 }
 
-func SetEventLoop(loop *AbstractEventLoop) {
-	// close the old one
-	if global != nil {
-		global.tasks.Done()
-	}
-	// start the new one
-	global = loop
-	go global.RunForever()
-}
+type Status int
 
-func GetEventLoop() *AbstractEventLoop {
-	if global == nil {
-		panic("There is no current eventloop.")
-	}
-	return global
-}
+const (
+	Stop Status = iota
+	Running
+)
 
 type AbstractEventLoop struct {
+	status Status
 	tasks  sync.WaitGroup
-	frozen sync.WaitGroup
+}
+
+func (loop *AbstractEventLoop) CreateTask(fn any, args ...any) (r *Task) {
+	task := &Task{Func: reflect.ValueOf(fn)}
+
+	if len(args) == 2 && args[0] == reflect.Slice {
+		arg := reflect.ValueOf(args[1])
+		if arg.Kind() == reflect.Slice {
+			r = task.Reflect(arg)
+		}
+	}
+
+	if r == nil {
+		r = task.Default(args...)
+	}
+
+	if loop.status == Running {
+		loop.Run(r)
+	}
+	return
 }
 
 func (loop *AbstractEventLoop) Run(task *Task) {
-	defer loop.tasks.Done()
-	loop.frozen.Wait()
-	task.Run()
-}
-
-func (loop *AbstractEventLoop) Coro(f any, args ...any) *Handle {
-	return loop.CreateTask(Coro{f, args})
-}
-
-func (loop *AbstractEventLoop) Callback(callback func([]any), f any, args ...any) *Handle {
-	return loop.CreateTask(Coro{f, args}, callback)
-}
-
-func (loop *AbstractEventLoop) CreateTask(coro Coro, callback ...func([]any)) *Handle {
-	var task *Task
-	if len(callback) == 0 {
-		task = coro.Task()
-	} else {
-		task = coro.Callback(callback[0])
-	}
 	loop.tasks.Add(1)
-	go loop.Run(task)
-	return task.handle
+	go func() {
+		defer loop.tasks.Done()
+		task.Run()
+	}()
 }
 
-func (loop *AbstractEventLoop) RunUntilComplete() {
-	loop.frozen.Done()
+func (loop *AbstractEventLoop) Start() {
+	loop.status = Running
+}
+
+func (loop *AbstractEventLoop) Finish() {
+	loop.status = Stop
+}
+
+func (loop *AbstractEventLoop) RunUntilComplete(tasks ...*Task) {
+	loop.Start()
+	defer loop.Finish()
+	for _, task := range tasks {
+		loop.Run(task)
+	}
 	loop.tasks.Wait()
 }
 
-func (loop *AbstractEventLoop) RunForever() {
+func (loop *AbstractEventLoop) RunForever(tasks ...*Task) {
 	loop.tasks.Add(1)
-	loop.RunUntilComplete()
+	loop.RunUntilComplete(tasks...)
+}
+
+func (loop *AbstractEventLoop) Stop() {
+	loop.tasks.Done()
 }

@@ -3,14 +3,30 @@ package asyncio_test
 import (
 	"fmt"
 	"math"
+	"reflect"
 	"testing"
 	"time"
 
 	"github.com/Drelf2018/asyncio"
 )
 
-func sleep(second int) float64 {
+func TestGlobal(t *testing.T) {
+	second := time.Duration(3) * time.Second
+	asyncio.RunForever(
+		asyncio.CreateTask(
+			func(sec time.Duration) {
+				time.Sleep(sec)
+				asyncio.GetEventLoop().Stop()
+			},
+			second,
+		),
+	)
+	t.Log("Awake")
+}
+
+func sleep(second int, num string) float64 {
 	time.Sleep(time.Duration(second) * time.Second)
+	fmt.Printf("No.%v Awake.\n", num)
 	return math.Sqrt(float64(second))
 }
 
@@ -33,14 +49,14 @@ func (s Student) Me() {
 }
 
 func TestSleep(t *testing.T) {
-	handles := asyncio.Slice(asyncio.SingleArg(1, 2, 3, 4), sleep)
+	handles := asyncio.Slice([][]any{{1, "1"}, {2, "2"}, {3, "3"}, {4, "4"}}, sleep)
 
 	// need hint type
-	a := asyncio.To[[]float64](handles)
+	a := asyncio.Results[float64](handles)
 	fmt.Printf("a: %v\n", a)
 	// auto infer
-	b := make([]float64, handles.Len())
-	asyncio.To(handles, b)
+	b := make([]float64, len(handles))
+	asyncio.Fill(handles, b)
 	fmt.Printf("b: %v\n", b)
 
 	for i, handle := range handles {
@@ -50,7 +66,57 @@ func TestSleep(t *testing.T) {
 
 func TestStruct(t *testing.T) {
 	s := Student{"Alice"}
-	coro := asyncio.C(s.Introduce, "I'm glad to see you!")
-	coros := asyncio.NoArgsFunc(s.Hello, s.Me)
-	asyncio.Wait(append(coros, coro)...)
+	asyncio.Loop(func(loop asyncio.EventLoop) {
+		loop.CreateTask(s.Introduce, "I'm glad to see you!")
+		loop.CreateTask(s.Hello)
+		loop.CreateTask(s.Me)
+	})
+}
+
+func TestRetry(t *testing.T) {
+	count := 0
+	res := asyncio.RetryTask(4, 0.5, asyncio.CreateTask(
+		func(i *int) bool {
+			defer func() {
+				count++
+			}()
+			fmt.Printf("i: %v\n", *i)
+			return *i == 3
+		},
+		&count,
+	))
+	fmt.Printf("res: %v\n", res)
+}
+
+func TestCreate(t *testing.T) {
+	data := []int{1, 2, 3, 4}
+	asyncio.GetEventLoop().Start()
+	asyncio.CreateTask(func(i, j, k, l int) {
+		fmt.Printf("i: %v\n", i)
+		fmt.Printf("j: %v\n", j)
+		fmt.Printf("k: %v\n", k)
+		fmt.Printf("l: %v\n", l)
+	}, reflect.Slice, data)
+	// }, data...) -> cannot use data (variable of type []int) as []any value in argument to
+	asyncio.RunUntilComplete()
+}
+
+func TestPromise(t *testing.T) {
+	count := 0
+	for {
+		asyncio.Promise(func(i int) bool {
+			return i == 3
+		}, count).Then(func(res bool) {
+			if res {
+				println("succeed")
+			} else {
+				println("failed")
+			}
+		}).Finally(func() {
+			count++
+		}).Call()
+		if count == 5 {
+			break
+		}
+	}
 }
