@@ -34,6 +34,19 @@ func Wait(tasks ...*Task) {
 	NewEventLoop().RunUntilComplete(tasks...)
 }
 
+func ForFunc[E any](arg E, f ...func(E)) {
+	l := len(f)
+	WaitGroup(l, func(done func()) {
+		exec := func(i int) {
+			defer done()
+			f[i](arg)
+		}
+		for i := 0; i < l; i++ {
+			go exec(i)
+		}
+	})
+}
+
 func ForEach[S ~[]E, E any](args S, f func(E)) {
 	l := len(args)
 	WaitGroup(l, func(done func()) {

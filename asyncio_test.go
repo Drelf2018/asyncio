@@ -120,3 +120,13 @@ func TestPromise(t *testing.T) {
 		}
 	}
 }
+
+func TestFunc(t *testing.T) {
+	asyncio.ForFunc("abc", func(s string) {
+		s += "d"
+		fmt.Printf("s1: %v\n", s)
+	}, func(s string) {
+		s += s
+		fmt.Printf("s2: %v\n", s)
+	})
+}
