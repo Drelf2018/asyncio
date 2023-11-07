@@ -34,6 +34,10 @@ func Wait(tasks ...*Task) {
 	NewEventLoop().RunUntilComplete(tasks...)
 }
 
+func Delay(seconds float64, fn any, args ...any) {
+	go CreateTask(fn, args...).Delay(seconds)
+}
+
 func ForFunc[E any](arg E, f ...func(E)) {
 	l := len(f)
 	WaitGroup(l, func(done func()) {
@@ -45,6 +49,21 @@ func ForFunc[E any](arg E, f ...func(E)) {
 			go exec(i)
 		}
 	})
+}
+
+func ForFuncV[E any, V any](arg E, f ...func(E) V) []V {
+	l := len(f)
+	v := make([]V, l)
+	WaitGroup(l, func(done func()) {
+		exec := func(i int) {
+			defer done()
+			v[i] = f[i](arg)
+		}
+		for i := 0; i < l; i++ {
+			go exec(i)
+		}
+	})
+	return v
 }
 
 func ForEach[S ~[]E, E any](args S, f func(E)) {
@@ -60,6 +79,21 @@ func ForEach[S ~[]E, E any](args S, f func(E)) {
 	})
 }
 
+func ForEachV[S ~[]E, E any, V any](args S, f func(E) V) []V {
+	l := len(args)
+	v := make([]V, l)
+	WaitGroup(l, func(done func()) {
+		exec := func(i int) {
+			defer done()
+			v[i] = f(args[i])
+		}
+		for i := 0; i < l; i++ {
+			go exec(i)
+		}
+	})
+	return v
+}
+
 func ForEachPtr[S ~[]E, E any](args S, f func(*E)) {
 	l := len(args)
 	WaitGroup(l, func(done func()) {
@@ -73,6 +107,21 @@ func ForEachPtr[S ~[]E, E any](args S, f func(*E)) {
 	})
 }
 
+func ForEachPtrV[S ~[]E, E any, V any](args S, f func(*E) V) []V {
+	l := len(args)
+	v := make([]V, l)
+	WaitGroup(l, func(done func()) {
+		exec := func(i int) {
+			defer done()
+			v[i] = f(&args[i])
+		}
+		for i := 0; i < l; i++ {
+			go exec(i)
+		}
+	})
+	return v
+}
+
 func Map[M ~map[K]V, K comparable, V any](m M, f func(K, V)) {
 	WaitGroup(len(m), func(done func()) {
 		exec := func(k K, v V) {
@@ -83,6 +132,21 @@ func Map[M ~map[K]V, K comparable, V any](m M, f func(K, V)) {
 			go exec(k, v)
 		}
 	})
+}
+
+func MapR[M ~map[K]V, K comparable, V any, R any](m M, f func(K, V) R) []R {
+	l := len(m)
+	r := make([]R, 0, l)
+	WaitGroup(l, func(done func()) {
+		exec := func(k K, v V) {
+			defer done()
+			r = append(r, f(k, v))
+		}
+		for k, v := range m {
+			go exec(k, v)
+		}
+	})
+	return r
 }
 
 func Slice[S ~[]E, E any](args S, f any) (tasks []*Task) {

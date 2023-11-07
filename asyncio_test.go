@@ -130,3 +130,9 @@ func TestFunc(t *testing.T) {
 		fmt.Printf("s2: %v\n", s)
 	})
 }
+
+func TestDelay(t *testing.T) {
+	t.Log("原神，")
+	asyncio.Delay(3, func() { t.Log("启动！") })
+	time.Sleep(4 * time.Second)
+}

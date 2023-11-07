@@ -3,6 +3,7 @@ package asyncio
 import (
 	"errors"
 	"reflect"
+	"time"
 )
 
 var (
@@ -69,6 +70,11 @@ func (t *Task) Run() *Task {
 		t.callback(t)
 	}
 	return t
+}
+
+func (t *Task) Delay(seconds float64) *Task {
+	time.Sleep(time.Duration(1000*seconds) * time.Millisecond)
+	return t.Run()
 }
 
 func (t *Task) First() any {
